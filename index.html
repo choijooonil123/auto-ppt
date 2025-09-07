@@ -1,0 +1,302 @@
+<!doctype html>
+
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>학습형 자동전환 슬라이드쇼</title>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#10183a; --ink:#eaf0ff; --muted:#a7b3d4;
+      --brand:#6aa6ff; --ok:#4cd97b; --danger:#ff6a6a; --warn:#ffb020;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 80% -10%,#1a2650 0%,#0b1020 45%);
+         color:var(--ink);font-family:ui-sans-serif,system-ui,"Apple SD Gothic Neo","Noto Sans KR",Segoe UI,Roboto,sans-serif}
+    .app{display:grid;grid-template-rows:auto 1fr auto;min-height:100%}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(16,24,58,.6);backdrop-filter: blur(6px);border-bottom:1px solid rgba(255,255,255,.08)}
+    header .title{font-weight:700;letter-spacing:.3px}
+    header .controls{display:flex;gap:8px;flex-wrap:wrap}
+    button, .btn{appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);
+      color:var(--ink);padding:8px 12px;border-radius:12px;cursor:pointer}
+    button:hover{background:rgba(255,255,255,.1)}
+    button.primary{border-color:transparent;background:linear-gradient(180deg,#5fa2ff,#6a7bff)}
+    button.danger{border-color:transparent;background:linear-gradient(180deg,#ff6a6a,#ff2f6a)}
+    button.warn{border-color:transparent;background:linear-gradient(180deg,#ffc46a,#ff9f20)}
+    main{position:relative;display:grid;place-items:center;padding:16px}
+    .slide{
+      width:min(1100px, 92vw); height:min(620px, 60vh);
+      border-radius:20px; background:#0f1535; border:1px solid rgba(255,255,255,.1);
+      box-shadow:0 10px 40px rgba(0,0,0,.45);
+      padding:40px; display:flex; align-items:center; justify-content:center; text-align:center;
+    }
+    .slide h1{font-size:clamp(26px,4vw,48px);margin:0 0 8px 0}
+    .slide p{font-size:clamp(16px,2.2vw,22px);color:var(--muted);margin:6px 0 0}
+    .hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--muted);font-size:14px;opacity:.9}
+    footer{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);color:var(--muted)}
+    .stat{display:flex;gap:14px;flex-wrap:wrap}
+    .tag{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:999px}
+    .prog{
+      --w: 160px; position:relative; width:var(--w); height:8px; border-radius:999px;
+      background:rgba(255,255,255,.12); overflow:hidden; border:1px solid rgba(255,255,255,.18)
+    }
+    .prog > i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#6aa6ff,#8a7bff)}
+    .tog{display:flex;gap:8px;align-items:center}
+    input[type="number"]{width:84px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--ink);padding:6px 8px;border-radius:10px}
+    label{font-size:14px;color:var(--muted)}
+    a.link{color:#a9c6ff}
+      .overlay{position:absolute;inset:0;pointer-events:none}
+    .overlay .fab{position:absolute;right:18px;bottom:18px;display:flex;gap:10px;pointer-events:auto}
+    .overlay .fab button{width:46px;height:46px;display:grid;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);backdrop-filter:blur(6px);cursor:pointer}
+    .overlay .fab button:hover{background:rgba(255,255,255,.16)}
+    .overlay .fab .primary{background:linear-gradient(180deg,#5fa2ff,#6a7bff);border-color:transparent}
+    .overlay .fab .warn{background:linear-gradient(180deg,#ffc46a,#ff9f20);border-color:transparent}
+    .overlay .fab .danger{background:linear-gradient(180deg,#ff6a6a,#ff2f6a);border-color:transparent}
+    .overlay[hidden]{display:none}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">학습형 자동전환 슬라이드쇼</div>
+      <div class="controls">
+        <button id="btnStart" class="primary">시작</button>
+        <button id="btnPrev">이전(←)</button>
+        <button id="btnNext">다음(→/Space)</button>
+        <button id="btnPause" class="warn" disabled>일시정지</button>
+        <button id="btnReset" class="danger">초기화</button>
+        <button id="btnFs">전체화면</button>
+      </div>
+    </header><main>
+  <div id="slide" class="slide" role="region" aria-live="polite" aria-label="슬라이드 영역">
+    <div>
+      <h1>시작을 누르고 1번 슬라이드에서 2번 슬라이드로 수동 전환해 주세요</h1>
+      <p>그때의 <b>전환 시간</b>을 학습하여 <b>3번 슬라이드부터 자동</b>으로 넘깁니다.</p>
+    </div>
+  </div>
+        <div class="hint">마우스 클릭 / Space / ← → 키로 수동 전환 가능</div>
+  <div id="overlay" class="overlay" aria-hidden="false">
+    <div class="fab" aria-label="화면 버튼">
+      <button id="fabStart" title="시작" class="primary" aria-label="시작">▶</button>
+      <button id="fabPrev" title="이전" aria-label="이전">←</button>
+      <button id="fabPause" title="일시정지/재개" class="warn" aria-label="일시정지/재개">⏸</button>
+      <button id="fabNext" title="다음" aria-label="다음">→</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="stat">
+    <span class="tag">슬라이드: <b id="idx">-</b>/<span id="total">-</span></span>
+    <span class="tag">학습된 전환시간: <b id="tempo">-</b> ms</span>
+    <span class="tag">상태: <b id="mode">대기</b></span>
+  </div>
+  <div class="stat">
+    <div class="tog">
+      <label for="min">최소(ms)</label><input id="min" type="number" value="1500" min="250" step="250" />
+    </div>
+    <div class="tog">
+      <label for="max">최대(ms)</label><input id="max" type="number" value="20000" min="1000" step="500" />
+    </div>
+    <div class="tog">
+      <label for="loop">마지막에서 반복</label><input id="loop" type="checkbox" checked />
+    </div>
+    <div class="prog" aria-label="다음 전환까지 진행률"><i id="bar"></i></div>
+          <div class="tog">
+      <label for="ov">화면 버튼 표시</label><input id="ov" type="checkbox" checked />
+    </div>
+  </div>
+</footer>
+
+  </div>  <script>
+    // ======== 데모용 슬라이드 데이터 ========
+    const slides = [
+      {h:"1. 오프닝", t:"여기서 ▶ 다음(→/Space) 을 눌러 1→2 전환 시간을 학습시켜 주세요."},
+      {h:"2. 안내", t:"이 슬라이드로 넘어온 순간의 경과 시간을 '템포'로 저장합니다."},
+      {h:"3. 본론 시작", t:"여기부터는 저장된 템포에 맞춰 자동으로 넘어갑니다."},
+      {h:"4. 내용 A", t:"자동 전환 중 수동 조작도 가능합니다 (템포는 유지)."},
+      {h:"5. 내용 B", t:"하단에서 최소/최대 범위를 조정해 엉뚱한 값 방지."},
+      {h:"6. 마무리", t:"끝 슬라이드에서 '마지막에서 반복'이 켜져 있으면 처음으로 반복."}
+    ];
+
+    // ======== 상태 변수 ========
+    let idx = -1;                 // 현재 인덱스
+    let learnedMs = null;         // 학습된 전환 시간(ms)
+    let t0 = null;                // 1번 진입 시간
+    let timer = null;             // setTimeout 핸들
+    let ticking = false;          // 자동전환 동작 여부
+    let paused = false;           // 일시정지 여부
+    let remaining = 0;            // 일시정지 시 남은 시간
+    let lastTickStart = 0;        // 진행률 바 계산용
+    let rafId = null;             // progress bar 애니메이션
+
+    // ======== 엘리먼트 ========$1$loop = document.getElementById('loop');
+    const $overlay = document.getElementById('overlay');
+    const $ov = document.getElementById('ov');
+    const $fabStart = document.getElementById('fabStart');
+    const $fabPrev = document.getElementById('fabPrev');
+    const $fabNext = document.getElementById('fabNext');
+    const $fabPause = document.getElementById('fabPause');
+
+    $total.textContent = slides.length;
+
+    // ======== 유틸 ========
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    function render(){
+      if(idx < 0){
+        $idx.textContent = '-';
+        $slide.innerHTML = `<div><h1>시작을 누르고 1→2 전환을 수동으로 해 주세요</h1><p>그때의 전환시간을 학습해 3번부터 자동 전환합니다.</p></div>`;
+        return;
+      }
+      const s = slides[idx];
+      $slide.innerHTML = `<div><h1>${s.h}</h1><p>${s.t}</p></div>`;
+      $idx.textContent = (idx+1);
+    }
+
+    function go(i){
+      stopTimer();
+      idx = clamp(i, 0, slides.length-1);
+      render();
+
+      // 1번 슬라이드 진입 시점 기록
+      if(idx === 0){
+        t0 = performance.now();
+        learnedMs = null;
+        $tempo.textContent = '-';
+        setMode('학습 대기');
+      }
+
+      // 2번 슬라이드에 들어온 순간, 1→2 경과시간을 학습
+      if(idx === 1 && t0){
+        const raw = performance.now() - t0;
+        const minV = parseInt($min.value||0,10);
+        const maxV = parseInt($max.value||0,10);
+        learnedMs = Math.round(clamp(raw, minV, maxV));
+        $tempo.textContent = learnedMs;
+        setMode('학습 완료');
+        // 3번부터 자동 전환 시작 (2번에서 대기 후 learnedMs 뒤 3번으로)
+        scheduleNext(learnedMs);
+      }
+
+      // 3번 이상이면 자동 전환 유지
+      if(idx >= 2 && learnedMs && !paused){
+        scheduleNext(learnedMs);
+      }
+    }
+
+    function scheduleNext(ms){
+      ticking = true; paused = false; $btnPause.disabled = false; setMode('자동 전환 중');
+      lastTickStart = performance.now();
+      startProgress(ms);
+      timer = setTimeout(()=>{
+        const isLast = idx >= slides.length-1;
+        if(isLast){
+          if($loop.checked){ go(0); }
+          else { setMode('완료'); ticking=false; $btnPause.disabled=true; stopProgress(); }
+        } else {
+          go(idx+1);
+        }
+      }, ms);
+    }
+
+    function stopTimer(){
+      if(timer){ clearTimeout(timer); timer=null; }
+      stopProgress();
+    }
+
+    function setMode(txt){ $mode.textContent = txt; }
+
+    function startProgress(ms){
+      stopProgress();
+      $bar.style.width = '0px';
+      const loop = ()=>{
+        const dt = performance.now() - lastTickStart;
+        const ratio = clamp(dt/ms, 0, 1);
+        $bar.style.width = (ratio*100)+'%';
+        rafId = requestAnimationFrame(loop);
+      };
+      rafId = requestAnimationFrame(loop);
+    }
+    function stopProgress(){ if(rafId){ cancelAnimationFrame(rafId); rafId=null; } $bar.style.width='0px'; }
+
+    // ======== 컨트롤 ========
+    $btnStart.addEventListener('click', ()=>{ go(0); });
+    $btnNext.addEventListener('click', ()=>{ manualNext(); });
+    $btnPrev.addEventListener('click', ()=>{ manualPrev(); });
+    $btnPause.addEventListener('click', ()=>{ togglePause(); });
+    $btnReset.addEventListener('click', ()=>{ resetAll(); });
+    $btnFs.addEventListener('click', ()=>{
+      const el = document.documentElement;
+      if(!document.fullscreenElement){ el.requestFullscreen?.(); } else { document.exitFullscreen?.(); }
+    });
+    
+    // 화면 버튼 토글
+    $ov.addEventListener('change', ()=>{ $overlay.hidden = !$ov.checked; });
+    
+    // FAB 버튼 연결
+    $fabStart.addEventListener('click', (e)=>{ e.stopPropagation(); go(0); });
+    $fabPrev.addEventListener('click', (e)=>{ e.stopPropagation(); manualPrev(); });
+    $fabNext.addEventListener('click', (e)=>{ e.stopPropagation(); manualNext(); });
+    $fabPause.addEventListener('click', (e)=>{ e.stopPropagation(); togglePause(); }); } else { document.exitFullscreen?.(); }
+    });
+
+    function manualNext(){
+      // 수동 조작 시 타이머 초기화 (템포는 유지)
+      stopTimer();
+      const isLast = idx >= slides.length-1;
+      if(isLast){ if($loop.checked) go(0); else go(idx); }
+      else go(idx+1);
+    }
+    function manualPrev(){ stopTimer(); if(idx>0) go(idx-1); }
+
+    function togglePause(){
+      if(!ticking){ return; }
+      if(!paused){
+        paused = true; setMode('일시정지'); $btnPause.textContent='재개';
+        $fabPause.textContent='▶'; // 아이콘 전환
+        const elapsed = performance.now() - lastTickStart;
+        remaining = Math.max(0, (learnedMs||0) - elapsed);
+        stopTimer();
+      } else {
+        paused = false; $btnPause.textContent='일시정지'; $fabPause.textContent='⏸'; setMode('자동 전환 중');
+        lastTickStart = performance.now();
+        startProgress(remaining||learnedMs||0);
+        timer = setTimeout(()=>{ go(idx+1); }, remaining||learnedMs||0);
+      }
+    }
+      if(!paused){
+        // 일시정지: 남은 시간 계산
+        paused = true; setMode('일시정지'); $btnPause.textContent='재개';
+        const elapsed = performance.now() - lastTickStart;
+        remaining = Math.max(0, (learnedMs||0) - elapsed);
+        stopTimer();
+      } else {
+        // 재개
+        paused = false; $btnPause.textContent='일시정지'; setMode('자동 전환 중');
+        lastTickStart = performance.now();
+        startProgress(remaining||learnedMs||0);
+        timer = setTimeout(()=>{ go(idx+1); }, remaining||learnedMs||0);
+      }
+    }
+
+    function resetAll(){
+      stopTimer();
+      idx = -1; learnedMs=null; t0=null; ticking=false; paused=false; remaining=0;
+      $btnPause.disabled = true; $btnPause.textContent='일시정지';
+      $tempo.textContent='-'; setMode('대기'); render();
+    }
+
+    // 키보드/마우스 조작
+    window.addEventListener('keydown', (e)=>{
+      if(e.code === 'ArrowRight' || e.code === 'Space'){ e.preventDefault(); manualNext(); }
+      if(e.code === 'ArrowLeft'){ e.preventDefault(); manualPrev(); }
+      if(e.code === 'KeyP'){ e.preventDefault(); togglePause(); }
+      if(e.code === 'KeyR'){ e.preventDefault(); resetAll(); }
+    });
+    $slide.addEventListener('click', manualNext);
+
+    // 초기 렌더
+    render();
+  </script></body>
+</html>
